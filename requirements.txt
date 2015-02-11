@@ -1,0 +1,5 @@
+django-social-auth
+arrow
+flup
+python-memcached
+simplejson

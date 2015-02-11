@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns="http://www.w3.org/1999/html">
+<head>
+    <link rel="shortcut icon" href="{{STATIC_URL}}news/images/favicon.ico" />
+    <title>vknews - агрегатор новостей vk.com</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <link href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css" rel="stylesheet" media="screen">
+    <script src="//code.jquery.com/jquery.min.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/jquery-ui.min.js" type="text/javascript"></script>
+    <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
+    <script src="http://heartcode-canvasloader.googlecode.com/files/heartcode-canvasloader-min-0.9.1.js"></script>
+    <script type="text/javascript" src="//vk.com/js/api/openapi.js?112"></script>
+    <link href="{{STATIC_URL}}news/css/jquery-ui-1.10.3.custom.css" rel="stylesheet" media="screen">
+    <link href="{{STATIC_URL}}news/css/jquery-ui-1.10.3.theme.css" rel="stylesheet" media="screen">
+    <link href="{{STATIC_URL}}news/css/custom.css" rel="stylesheet" media="screen">
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+	<script src="http://getbootstrap.com/docs-assets/js/html5shiv.js"></script>
+	<script src="http://getbootstrap.com/docs-assets/js/respond.min.js"></script>
+    <![endif]-->
+    <script type="text/javascript">
+	VK.init({apiId: 4324333, onlyWidgets: true});
+    </script>
+</head>
+
+<body>
+ <div class="container">
+    <div class="bg"></div>
+    <div class="jumbotron">
+	    <h1>Новости вконтакте</h1>
+	    <p class="lead">Поиск новостей вконтакте с фильтром по городу</p>
+    </div>
+    <div class="row">
+	<div class="col-xs-3" id="myScrollspy">
+	    <div  class="nav" data-spy="affix" data-offset-top="350">
+            {% if user.is_authenticated %}
+                <div id="authenticatedUser">
+                    <a href="/logout/" class="bg-success btn-block userNickName"><img class="avatar img-rounded"
+                        src="{{user_photo}}" alt="{{user_nick_name}}"> {{ user_first_name }} {{ user_last_name }}</a>
+                </div>
+            {% else %}
+		        <p id="vkLogin">
+                    <button id="buttonVkLogin" class="btn btn-success btn-block"
+                        onclick="self.location='{% url 'socialauth_begin' 'vk-oauth' %}'">
+                        <span class="label">войти через контакт</span></button>
+		        </p>
+                <p id="loginHint" class="hint">
+                    Логин нужен для того, чтобы мы могли запомнить ваши настройки. В частности, это позволит вам
+                    один раз удалить спам из выдачи и больше новости от этих пользователей никогда вас не побеспокоят.
+                    Если при попытке войти Вконтакте выкинет ошибку - просто выйдите из аккаунта Вконтакте
+                    и зайдите еще раз.
+                </p>
+            {% endif %}
+		<form method="POST" id="cityForm" action="javascript:void(null);" onsubmit="call()">
+		    {% csrf_token %}
+		    <input id="id_cityText" class="form-control" maxlength="100" name="cityText" type="text" value="Санкт-Петербург">
+		    <input id="id_searchString" class="form-control" maxlength="100" name="searchString" type="text" value="Сдам квартиру">
+		    <input id="id_cityID" name="cityID" type="hidden" value="2">
+		    <input id="id_startFrom" name="startFrom" type="hidden" value="0">
+		    <p>
+		    <button id="buttonSearch" class="btn btn-primary btn-block"><span class="label">Поехали!</span></button>
+		    </p>
+		    
+		</form>
+            <!-- Put this div tag to the place, where the Like block will be -->
+		    <div id="vk_like"></div>
+		    <script type="text/javascript">
+			VK.Widgets.Like("vk_like", {type: "button", height: 24});
+		    </script>
+		    <div id="hideSpam">
+		        <button id="buttonHideSpam" class="btn btn-block btn-warning" onclick="hideSpamF()">
+                    <span class="label">Убрать спам</span></button>
+                <p id="hideSpamHint" class="hint">Удалит из текущей выдачи все новости, принадлежащие отмеченным авторам</p>
+            </div>
+            <div id="eraseSpam">
+		        <button id="buttonEraseSpam" class="btn btn-block btn-danger" onclick="eraseSpamF()">
+                    <span class="label">и больше его не показывать</span></button>
+                <p id="eraseSpamHint" class="hint">Удалит навсегда из выдачи новости авторов, почемеченных вами, как спам</p>
+            </div>
+            <div id="divEraseSpamResult"></div>
+        </div>
+	</div>
+	<div class="col-xs-9">
+	    <div id="cityResults">
+	        <h3>Для чего этот сервис?</h3>
+	        <p>Когда люди хотят купить, продать, сдать в аренду, они часто делятся своим желанием в социальных сетях.
+                Вконтакте легко позволяет совершать поиск по новостям, но, практически,  не умеет фильтровать новости
+	        по городам. Только по гео-меткам, но они очень редко присутствуют в заметках. Vknews, в свою очередь,
+                прекрасно справляется с этой задачей.</p>
+	        <p>Мы показываем только новости от пользователей, оставляя за бортом новости групп.
+                И, в выборку попадают только те новости, автор которых находится в заданном городе</p>
+	        <h3>Не все разделы работают</h3>
+            <p>Сервис делается на коленке в свободное от работы время, поэтому возможны внезапности и
+                неожиданности в работе, прошу понять и простить ;-)</p>
+            <div class="bg-danger">
+                <h3>Ошибка при логине</h3>
+                <p>
+                    Если при попытке войти выкинет ошибку - просто выйдите из Контакта и зайдите еще раз.
+                </p>
+            </div>
+            <h3>Как пользоваться?</h3>
+	        <p>Очень просто! Введите город и строку поиска в форме слева и нажимайте "Поехали!"</p>
+	        <p>Удачи в поисках!</p>
+	    </div>
+	    <div class="col-md-4 col-md-offset-5" id="load_indicator">
+	    </div>
+	</div>
+    </div>
+</div>
+<!-- Yandex.Metrika counter --><script type="text/javascript">(function (d, w, c) { (w[c] = w[c] || []).push(function() { try { w.yaCounter24845951 = new Ya.Metrika({id:24845951, webvisor:true, clickmap:true, trackLinks:true, accurateTrackBounce:true}); } catch(e) { } }); var n = d.getElementsByTagName("script")[0], s = d.createElement("script"), f = function () { n.parentNode.insertBefore(s, n); }; s.type = "text/javascript"; s.async = true; s.src = (d.location.protocol == "https:" ? "https:" : "http:") + "//mc.yandex.ru/metrika/watch.js"; if (w.opera == "[object Opera]") { d.addEventListener("DOMContentLoaded", f, false); } else { f(); } })(document, window, "yandex_metrika_callbacks");</script><noscript><div><img src="//mc.yandex.ru/watch/24845951" style="position:absolute; left:-9999px;" alt="" /></div></noscript><!-- /Yandex.Metrika counter -->
+</body>
+<script src="{{STATIC_URL}}news/js/ajax.js" type="text/javascript" language="javascript"></script>
+<script src="{{STATIC_URL}}news/js/jquery.cookie.js" type="text/javascript" language="javascript"></script>
+<script src="{{STATIC_URL}}news/js/para.js" type="text/javascript" language="javascript"></script>
+</html>
+
+
+
+  
